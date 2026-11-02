@@ -279,8 +279,9 @@ module Datadog
         # change and has to be rebuilt instead. The old profiler is shut down
         # before the new one starts because the native extension permits only one
         # active CpuAndWallTimeWorker (see active_sampler_instance in
-        # collectors_cpu_and_wall_time_worker.c); CpuAndWallTimeWorker#stop joins
-        # the worker thread, so that slot is free once shutdown! returns.
+        # collectors_cpu_and_wall_time_worker.c). CpuAndWallTimeWorker#stop joins
+        # the worker thread, and the worker unregisters itself before its thread
+        # ends, so no worker is registered as active once shutdown! returns.
         #
         # The caller must hold the components lock (Datadog.send(:safely_synchronize)),
         # so a concurrent Datadog.configure can't start a second profiler against the
