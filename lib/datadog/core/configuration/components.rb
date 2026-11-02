@@ -282,30 +282,30 @@ module Datadog
         # collectors_cpu_and_wall_time_worker.c); CpuAndWallTimeWorker#stop joins
         # the worker thread, so that slot is free once shutdown! returns.
         #
-        # Acquires the Components lock so a concurrent Datadog.configure cannot
-        # start a second profiler against the replacement components.
+        # The caller must hold the components lock (Datadog.send(:safely_synchronize)),
+        # so a concurrent Datadog.configure can't start a second profiler against the
+        # replacement components, and must have looked these components up under it,
+        # so they aren't retired ones.
         def reconfigure_profiler
-          Datadog.send(:safely_synchronize) do
-            old_profiler = @profiler
+          old_profiler = @profiler
 
-            @profiler, profiler_logger_extra = Datadog::Profiling::Component.build_profiler_component(
-              settings: settings,
-              agent_settings: agent_settings,
-              optional_tracer: tracer,
-              logger: logger,
-            )
-            @environment_logger_extra.merge!(profiler_logger_extra) if profiler_logger_extra
+          @profiler, profiler_logger_extra = Datadog::Profiling::Component.build_profiler_component(
+            settings: settings,
+            agent_settings: agent_settings,
+            optional_tracer: tracer,
+            logger: logger,
+          )
+          @environment_logger_extra.merge!(profiler_logger_extra) if profiler_logger_extra
 
-            old_profiler&.shutdown!
+          old_profiler&.shutdown!
 
-            if settings.profiling.enabled
-              if @profiler
-                @profiler.start
-              else
-                logger.warn(
-                  "Profiling was requested but is not supported, profiling disabled: #{Profiling.unsupported_reason}"
-                )
-              end
+          if settings.profiling.enabled
+            if @profiler
+              @profiler.start
+            else
+              logger.warn(
+                "Profiling was requested but is not supported, profiling disabled: #{Profiling.unsupported_reason}"
+              )
             end
           end
         end

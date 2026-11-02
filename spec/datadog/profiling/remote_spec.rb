@@ -478,6 +478,40 @@ RSpec.describe Datadog::Profiling::Remote do
       end
     end
 
+    describe "resolving the components to reconfigure" do
+      let(:contents) { [profiling_content("preset-default", profilers: default_preset)] }
+
+      it "looks them up under the components lock" do
+        expect(Datadog).to receive(:send).with(:safely_synchronize).ordered.and_call_original
+        expect(Datadog).to receive(:send).with(:components, allow_initialization: false).ordered.and_return(components)
+        expect(components).to receive(:reconfigure_profiler)
+
+        apply_configs
+      end
+
+      # Datadog.configure starts the new remote worker before publishing the components it built.
+      context "when the components were replaced before the lock was taken" do
+        let(:retired_components) do
+          instance_double(
+            Datadog::Core::Configuration::Components,
+            profiler: instance_double("Datadog::Profiling::Profiler", running?: false),
+          )
+        end
+
+        before do
+          remote.apply_configs(repository)
+          allow(Datadog).to receive(:send).with(:components, allow_initialization: false)
+            .and_return(retired_components, components)
+        end
+
+        it "checks the current components, leaving the retired ones alone" do
+          expect(components).to_not receive(:reconfigure_profiler)
+
+          apply_configs
+        end
+      end
+    end
+
     context "with content from other DEBUG users" do
       let(:contents) do
         [

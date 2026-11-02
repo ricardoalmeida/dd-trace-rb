@@ -291,15 +291,22 @@ module Datadog
 
           # allow_initialization: false to avoid building the component tree from the remote-config
           # worker thread.
-          components = Datadog.send(:components, allow_initialization: false)
+          return unless changed || requested_profiler_stopped?(values, Datadog.send(:components, allow_initialization: false))
 
-          if changed
-            Datadog.logger.debug { "Profiling RC: applying #{values}" }
-            components&.telemetry&.client_configuration_change!(env_vars)
-            components&.reconfigure_profiler
-          elsif requested_profiler_stopped?(values, components)
-            Datadog.logger.debug { "Profiling RC: restarting the profiler, which is not running" }
-            components&.reconfigure_profiler
+          Datadog.send(:safely_synchronize) do
+            # Looked up under the lock: Datadog.configure holds it until it publishes the components
+            # replacing the current ones, and its new remote worker can dispatch before that. Rebuilding
+            # the profiler of retired components would leave a profiler running that nothing tracks.
+            components = Datadog.send(:components, allow_initialization: false)
+
+            if changed
+              Datadog.logger.debug { "Profiling RC: applying #{values}" }
+              components&.telemetry&.client_configuration_change!(env_vars)
+              components&.reconfigure_profiler
+            elsif requested_profiler_stopped?(values, components)
+              Datadog.logger.debug { "Profiling RC: restarting the profiler, which is not running" }
+              components&.reconfigure_profiler
+            end
           end
         end
 
