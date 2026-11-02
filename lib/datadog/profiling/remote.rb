@@ -20,7 +20,10 @@ module Datadog
       PRODUCT = "DEBUG"
 
       BOOLEAN = ->(value) { value == true || value == false }
-      POSITIVE_INTEGER = ->(value) { value.is_a?(Integer) && value > 0 }
+
+      # The range sampling_buffer_check_max_frames (collectors_stack.c) accepts. Any other value would make
+      # building the profiler fail, leaving profiling off.
+      MAX_STACK_DEPTH = ->(value) { value.is_a?(Integer) && value >= 5 && value <= 3000 }
 
       # Ruby has no separate CPU and wall time toggles, as the CpuAndWallTimeWorker always collects
       # both, so they only count towards enablement. Other profilers in the schema (lock, exception)
@@ -33,7 +36,7 @@ module Datadog
       }.freeze
 
       SETTING_FIELDS = {
-        "maxStackDepth" => POSITIVE_INTEGER,
+        "maxStackDepth" => MAX_STACK_DEPTH,
         "rubySignalWorkaround" => BOOLEAN,
       }.freeze
 

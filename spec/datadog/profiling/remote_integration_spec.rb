@@ -155,6 +155,16 @@ RSpec.describe "Profiling remote configuration", :memcheck_valgrind_skip do
     expect(Datadog::Profiling.wait_until_running).to be true
   end
 
+  it "keeps profiling when maxStackDepth is outside of what the profiler supports" do
+    enable_profiling
+
+    deliver(profilers: {cpuTime: true, wallTime: true}, settings: {maxStackDepth: 4}, targets: [target])
+    sync_remote_config
+
+    expect(Datadog.configuration.profiling.advanced.max_frames).to eq(400)
+    expect(Datadog::Profiling.wait_until_running).to be true
+  end
+
   it "stops the profiler and restores the local configuration when the config is removed" do
     enable_profiling
 

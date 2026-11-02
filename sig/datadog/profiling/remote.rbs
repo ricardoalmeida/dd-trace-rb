@@ -19,7 +19,7 @@ module Datadog
 
       BOOLEAN: validator
 
-      POSITIVE_INTEGER: validator
+      MAX_STACK_DEPTH: validator
 
       PROFILER_FIELDS: Hash[String, validator]
 

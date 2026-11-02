@@ -228,6 +228,31 @@ RSpec.describe Datadog::Profiling::Remote do
       end
     end
 
+    describe "maxStackDepth" do
+      def apply_max_stack_depth(depth)
+        contents << profiling_content("id", profilers: default_preset, settings: {"maxStackDepth" => depth})
+        apply_configs
+      end
+
+      [5, 3000].each do |depth|
+        it "accepts #{depth}, within the range the profiler supports" do
+          apply_max_stack_depth(depth)
+
+          expect(settings.profiling.advanced.max_frames).to eq(depth)
+          expect(contents.first.apply_state).to eq(apply_state::ACKNOWLEDGED)
+        end
+      end
+
+      [4, 3001].each do |depth|
+        it "rejects #{depth}, as building the profiler would fail, and keeps the local value" do
+          apply_max_stack_depth(depth)
+
+          expect(settings.profiling.advanced.max_frames).to eq(400)
+          expect(contents.first.apply_error).to eq("settings.maxStackDepth has an invalid value")
+        end
+      end
+    end
+
     context "with settings meant for other languages" do
       let(:contents) do
         [profiling_content("id", settings: {"pythonMemoryMemDomain" => true})]
