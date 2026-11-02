@@ -272,21 +272,11 @@ module Datadog
           Datadog.send(:safely_synchronize) { tracer.sampler.sampler = sampler }
         end
 
-        # Replaces the profiler with one built from the current settings.
+        # Rebuilds the profiler, which copies setting values when it is built. The old one
+        # is stopped before the new one starts, as only one CpuAndWallTimeWorker can be active.
         #
-        # build_profiler_component snapshots setting values into the recorder and
-        # the native worker, so a running profiler cannot pick up a settings
-        # change and has to be rebuilt instead. The old profiler is shut down
-        # before the new one starts because the native extension permits only one
-        # active CpuAndWallTimeWorker (see active_sampler_instance in
-        # collectors_cpu_and_wall_time_worker.c). CpuAndWallTimeWorker#stop joins
-        # the worker thread, and the worker unregisters itself before its thread
-        # ends, so no worker is registered as active once shutdown! returns.
-        #
-        # The caller must hold the components lock (Datadog.send(:safely_synchronize)),
-        # so a concurrent Datadog.configure can't start a second profiler against the
-        # replacement components, and must have looked these components up under it,
-        # so they aren't retired ones.
+        # Callers must hold the components lock (safely_synchronize) and look these
+        # components up under it, so they can't be replaced meanwhile.
         def reconfigure_profiler
           old_profiler = @profiler
 
