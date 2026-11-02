@@ -653,8 +653,8 @@ RSpec.describe Datadog::Core::Configuration::Components do
   describe "#reconfigure_profiler" do
     subject(:reconfigure_profiler) { components.reconfigure_profiler }
 
-    let(:old_profiler) { instance_double(Datadog::Profiling::Profiler, shutdown!: nil, start: nil) }
-    let(:new_profiler) { instance_double(Datadog::Profiling::Profiler, shutdown!: nil, start: nil) }
+    let(:old_profiler) { instance_double("Datadog::Profiling::Profiler", shutdown!: nil, start: nil) }
+    let(:new_profiler) { instance_double("Datadog::Profiling::Profiler", shutdown!: nil, start: nil) }
 
     before do
       components.instance_variable_set(:@profiler, old_profiler)
