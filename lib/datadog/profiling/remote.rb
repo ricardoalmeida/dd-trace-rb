@@ -47,7 +47,10 @@ module Datadog
 
         def receivers(_telemetry)
           matcher = Core::Remote::Dispatcher::Matcher::Product.new(products)
-          receiver = Core::Remote::Dispatcher::Receiver.new(matcher) do |repository, _changes|
+          # A new client, after a fork or Datadog.configure, starts with an empty repository while the
+          # settings keep their remote values, so a config removed meanwhile has no change to dispatch.
+          # Reconciling on its first sync reverts those values.
+          receiver = Core::Remote::Dispatcher::Receiver.new(matcher, initial_reconcile: true) do |repository, _changes|
             apply_configs(repository)
           end
           [receiver]

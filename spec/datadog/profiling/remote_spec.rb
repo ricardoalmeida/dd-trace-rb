@@ -74,6 +74,22 @@ RSpec.describe Datadog::Profiling::Remote do
 
       expect { receivers.first.call(repository, []) }.to change { settings.profiling.enabled }.from(false).to(true)
     end
+
+    context "when a new client's first sync finds that the config enabling profiling was removed" do
+      let(:dispatcher) { Datadog::Core::Remote::Dispatcher.new(receivers) }
+
+      before do
+        contents << profiling_content("preset-default", profilers: default_preset)
+        remote.apply_configs(repository)
+        contents.clear
+      end
+
+      it "restores the local values" do
+        expect(components).to receive(:reconfigure_profiler)
+
+        expect { dispatcher.reconcile([], repository) }.to change { settings.profiling.enabled }.from(true).to(false)
+      end
+    end
   end
 
   describe ".apply_configs" do

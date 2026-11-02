@@ -165,6 +165,17 @@ RSpec.describe "Profiling remote configuration", :memcheck_valgrind_skip do
     expect(Datadog::Profiling.wait_until_running).to be true
   end
 
+  it "restores the local configuration when a new client finds the config removed, as after a fork" do
+    enable_profiling
+
+    deliver(nil)
+    Datadog.send(:components).remote.after_fork
+    sync_remote_config
+
+    expect(Datadog.send(:components).profiler).to be_nil
+    expect(Datadog.configuration.profiling.enabled).to be false
+  end
+
   it "stops the profiler and restores the local configuration when the config is removed" do
     enable_profiling
 
