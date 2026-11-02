@@ -255,7 +255,8 @@ module Datadog
         end
 
         # The profiler copies setting values when it is built, so it is rebuilt whenever a resolved
-        # value changes. Unchanged dispatches (e.g. another team's DEBUG config changing) do nothing.
+        # value changes. Unchanged dispatches (e.g. another team's DEBUG config changing) do nothing,
+        # unless the profiler RC requested isn't running, e.g. because rebuilding it failed.
         def apply_values(settings, values)
           options = remote_options(settings)
           before = options.map { |object, name, _env_var| object.get_option(name) }
@@ -266,15 +267,28 @@ module Datadog
             [env_var, Core::Telemetry::ConfigurationValue.convert(value)]
           end
 
-          return if options.map { |object, name, _env_var| object.get_option(name) } == before
-
-          Datadog.logger.debug { "Profiling RC: applying #{values}" }
+          changed = options.map { |object, name, _env_var| object.get_option(name) } != before
 
           # allow_initialization: false to avoid building the component tree from the remote-config
           # worker thread.
           components = Datadog.send(:components, allow_initialization: false)
-          components&.telemetry&.client_configuration_change!(env_vars)
-          components&.reconfigure_profiler
+
+          if changed
+            Datadog.logger.debug { "Profiling RC: applying #{values}" }
+            components&.telemetry&.client_configuration_change!(env_vars)
+            components&.reconfigure_profiler
+          elsif requested_profiler_stopped?(values, components)
+            Datadog.logger.debug { "Profiling RC: restarting the profiler, which is not running" }
+            components&.reconfigure_profiler
+          end
+        end
+
+        # Only when RC requests profiling, so that a locally enabled profiler that failed isn't rebuilt
+        # on every DEBUG change. A missing profiler isn't retried either: building it failed or the
+        # runtime can't profile, and retrying would only repeat that.
+        def requested_profiler_stopped?(values, components)
+          profiler = components&.profiler
+          values[:enabled] == true && !profiler.nil? && !profiler.running?
         end
 
         def remote_options(settings)

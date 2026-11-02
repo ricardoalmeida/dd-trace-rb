@@ -53,6 +53,8 @@ module Datadog
 
       def self.apply_values: (Core::Configuration::Settings settings, Hash[Symbol, untyped] values) -> void
 
+      def self.requested_profiler_stopped?: (Hash[Symbol, untyped] values, Core::Configuration::Components? components) -> bool
+
       def self.remote_options: (Core::Configuration::Settings settings) -> Array[remote_option]
 
       def self.apply_option: (Core::Configuration::Options::_InstanceMethods object, Symbol name, Object? value) -> void

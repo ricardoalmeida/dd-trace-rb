@@ -47,6 +47,11 @@ module Datadog
         stop_scheduler
       end
 
+      #: () -> bool
+      def running?
+        worker.running?
+      end
+
       private
 
       #: () -> void

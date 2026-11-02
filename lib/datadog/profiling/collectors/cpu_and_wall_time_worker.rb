@@ -130,6 +130,12 @@ module Datadog
           true
         end
 
+        # Also true while the worker is starting. False once it stopped, including on a failure.
+        #: () -> bool
+        def running?
+          !!@worker_thread&.alive?
+        end
+
         #: () -> void
         def stop
           @start_stop_mutex.synchronize do

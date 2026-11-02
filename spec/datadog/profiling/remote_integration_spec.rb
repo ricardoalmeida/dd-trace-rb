@@ -141,6 +141,20 @@ RSpec.describe "Profiling remote configuration", :memcheck_valgrind_skip do
     expect(profile_uploads.size).to eq(1)
   end
 
+  it "restarts the profiler on the next dispatch when it stopped unexpectedly" do
+    enable_profiling
+    old_profiler = Datadog.send(:components).profiler
+    old_profiler.send(:worker).stop
+    expect(old_profiler.running?).to be false
+
+    # Changes the content without changing any resolved setting.
+    deliver(profilers: {cpuTime: true, wallTime: true, lock: false}, targets: [target])
+    sync_remote_config
+
+    expect(Datadog.send(:components).profiler).to_not be(old_profiler)
+    expect(Datadog::Profiling.wait_until_running).to be true
+  end
+
   it "stops the profiler and restores the local configuration when the config is removed" do
     enable_profiling
 

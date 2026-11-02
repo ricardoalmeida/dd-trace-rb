@@ -5,8 +5,14 @@ RSpec.describe Datadog::Profiling::Remote do
   let(:remote) { described_class }
   let(:settings) { Datadog::Core::Configuration::Settings.new }
   let(:telemetry) { instance_double(Datadog::Core::Telemetry::Component, client_configuration_change!: nil, report: nil) }
+  let(:profiler) { instance_double("Datadog::Profiling::Profiler", running?: true) }
   let(:components) do
-    instance_double(Datadog::Core::Configuration::Components, telemetry: telemetry, reconfigure_profiler: nil)
+    instance_double(
+      Datadog::Core::Configuration::Components,
+      telemetry: telemetry,
+      reconfigure_profiler: nil,
+      profiler: profiler,
+    )
   end
   let(:contents) { [] }
   let(:repository) { instance_double(Datadog::Core::Remote::Configuration::Repository, contents: contents) }
@@ -375,6 +381,49 @@ RSpec.describe Datadog::Profiling::Remote do
         expect(telemetry).to_not receive(:client_configuration_change!)
 
         contents << content("other-team", {"something" => "else"})
+        apply_configs
+      end
+    end
+
+    context "when the profiler RC requested is not running" do
+      let(:contents) { [profiling_content("preset-default", profilers: default_preset)] }
+      let(:profiler) { instance_double("Datadog::Profiling::Profiler", running?: false) }
+
+      before { remote.apply_configs(repository) }
+
+      it "restarts it on the next dispatch, without reporting the unchanged values to telemetry" do
+        expect(components).to receive(:reconfigure_profiler)
+        expect(telemetry).to_not receive(:client_configuration_change!)
+
+        apply_configs
+      end
+    end
+
+    context "when a locally enabled profiler is not running" do
+      let(:contents) { [profiling_content("id", settings: {"maxStackDepth" => 100})] }
+      let(:profiler) { instance_double("Datadog::Profiling::Profiler", running?: false) }
+
+      before do
+        settings.profiling.enabled = true
+        remote.apply_configs(repository)
+      end
+
+      it "leaves it alone" do
+        expect(components).to_not receive(:reconfigure_profiler)
+
+        apply_configs
+      end
+    end
+
+    context "when the profiler RC requested could not be built" do
+      let(:contents) { [profiling_content("preset-default", profilers: default_preset)] }
+      let(:profiler) { nil }
+
+      before { remote.apply_configs(repository) }
+
+      it "does not retry" do
+        expect(components).to_not receive(:reconfigure_profiler)
+
         apply_configs
       end
     end

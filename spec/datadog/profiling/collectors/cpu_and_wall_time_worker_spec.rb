@@ -1896,6 +1896,45 @@ RSpec.describe Datadog::Profiling::Collectors::CpuAndWallTimeWorker do
     end
   end
 
+  describe "#running?" do
+    it "is false before starting" do
+      expect(cpu_and_wall_time_worker.running?).to be false
+    end
+
+    it "is true once started, and false after stopping" do
+      cpu_and_wall_time_worker.start
+      wait_until_running
+
+      expect(cpu_and_wall_time_worker.running?).to be true
+
+      cpu_and_wall_time_worker.stop
+
+      expect(cpu_and_wall_time_worker.running?).to be false
+    end
+
+    context "when the sampling loop fails to start" do
+      before do
+        described_class::Testing._native_install_testing_signal_handler
+        allow(Datadog.logger).to receive(:warn)
+      end
+
+      after do
+        described_class::Testing._native_remove_testing_signal_handler
+      end
+
+      it "is false once the worker thread stopped" do
+        cpu_and_wall_time_worker.start
+        try_wait_until(backoff: 0.01) { cpu_and_wall_time_worker.send(:failure_exception) }
+        cpu_and_wall_time_worker.instance_variable_get(:@worker_thread).join
+
+        expect(cpu_and_wall_time_worker.running?).to be false
+      ensure
+        # Also stops the idle sampling helper thread, which the failed start left running.
+        cpu_and_wall_time_worker.stop
+      end
+    end
+  end
+
   describe "._native_hold_signals and _native_resume_signals" do
     it "blocks/unblocks interruptions for the current thread" do
       expect(described_class::Testing._native_is_sigprof_blocked_in_current_thread).to be false
