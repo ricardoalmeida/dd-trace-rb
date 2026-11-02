@@ -251,7 +251,9 @@ module Datadog
           {
             enabled: enabled,
             allocation_enabled: allocation_enabled,
+            # Heap size samples need both, and the latter may be disabled locally.
             experimental_heap_enabled: heap_enabled,
+            experimental_heap_size_enabled: heap_enabled,
             max_frames: settings["maxStackDepth"],
             no_signals_workaround_enabled: settings["rubySignalWorkaround"],
           }
@@ -301,6 +303,7 @@ module Datadog
             [profiling, :enabled, "DD_PROFILING_ENABLED"],
             [profiling, :allocation_enabled, "DD_PROFILING_ALLOCATION_ENABLED"],
             [advanced, :experimental_heap_enabled, "DD_PROFILING_EXPERIMENTAL_HEAP_ENABLED"],
+            [advanced, :experimental_heap_size_enabled, "DD_PROFILING_EXPERIMENTAL_HEAP_SIZE_ENABLED"],
             [advanced, :max_frames, "DD_PROFILING_MAX_FRAMES"],
             [advanced, :no_signals_workaround_enabled, "DD_PROFILING_NO_SIGNALS_WORKAROUND_ENABLED"],
           ]

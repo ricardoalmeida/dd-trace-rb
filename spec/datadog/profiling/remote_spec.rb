@@ -110,6 +110,7 @@ RSpec.describe Datadog::Profiling::Remote do
             ["DD_PROFILING_ENABLED", true],
             ["DD_PROFILING_ALLOCATION_ENABLED", true],
             ["DD_PROFILING_EXPERIMENTAL_HEAP_ENABLED", true],
+            ["DD_PROFILING_EXPERIMENTAL_HEAP_SIZE_ENABLED", true],
             ["DD_PROFILING_MAX_FRAMES", nil],
             ["DD_PROFILING_NO_SIGNALS_WORKAROUND_ENABLED", nil],
           )
@@ -157,6 +158,26 @@ RSpec.describe Datadog::Profiling::Remote do
           .to change { settings.profiling.enabled }.from(false).to(true)
           .and change { settings.profiling.advanced.experimental_heap_enabled }.from(false).to(true)
           .and change { settings.profiling.allocation_enabled }.from(false).to(true)
+      end
+    end
+
+    context "when heapSize is requested and heap size profiling is disabled locally" do
+      let(:contents) { [profiling_content("id", profilers: {"heapSize" => true})] }
+
+      before do
+        settings.profiling.enabled = true
+        settings.profiling.allocation_enabled = true
+        settings.profiling.advanced.experimental_heap_enabled = true
+        settings.profiling.advanced.experimental_heap_size_enabled = false
+      end
+
+      it "enables heap size profiling, restarting the profiler for it alone" do
+        expect(components).to receive(:reconfigure_profiler)
+        expect(telemetry).to receive(:client_configuration_change!)
+          .with(include(["DD_PROFILING_EXPERIMENTAL_HEAP_SIZE_ENABLED", true]))
+
+        expect { apply_configs }
+          .to change { settings.profiling.advanced.experimental_heap_size_enabled }.from(false).to(true)
       end
     end
 
