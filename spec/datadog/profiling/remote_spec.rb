@@ -278,7 +278,7 @@ RSpec.describe Datadog::Profiling::Remote do
 
     context "with settings meant for other languages" do
       let(:contents) do
-        [profiling_content("id", settings: {"pythonMemoryMemDomain" => true})]
+        [profiling_content("id", profilers: {"lock" => false}, settings: {"pythonMemoryMemDomain" => true})]
       end
 
       it "ignores them without reporting an error" do
@@ -386,7 +386,9 @@ RSpec.describe Datadog::Profiling::Remote do
 
       it "merges fields from less specific configs" do
         contents << profiling_content("env", profilers: default_preset, targets: [{"env" => "prod"}])
-        contents << profiling_content("svc", settings: {"maxStackDepth" => 100}, targets: [{"service" => "web"}])
+        contents << profiling_content(
+          "svc", profilers: {"lock" => false}, settings: {"maxStackDepth" => 100}, targets: [{"service" => "web"}]
+        )
 
         apply_configs
 
@@ -448,7 +450,7 @@ RSpec.describe Datadog::Profiling::Remote do
     end
 
     context "when a locally enabled profiler is not running" do
-      let(:contents) { [profiling_content("id", settings: {"maxStackDepth" => 100})] }
+      let(:contents) { [profiling_content("id", profilers: {"lock" => false}, settings: {"maxStackDepth" => 100})] }
       let(:profiler) { instance_double("Datadog::Profiling::Profiler", running?: false) }
 
       before do
@@ -477,7 +479,14 @@ RSpec.describe Datadog::Profiling::Remote do
     end
 
     context "with content from other DEBUG users" do
-      let(:contents) { [content("json", {"something" => "else"}), content("text", "not json")] }
+      let(:contents) do
+        [
+          content("json", {"something" => "else"}),
+          content("text", "not json"),
+          # A generic settings section, even with a key profiling also uses, doesn't make it profiling content.
+          content("settings", {"settings" => {"maxStackDepth" => 100, "verbose" => true}}),
+        ]
+      end
 
       it "leaves it unacknowledged" do
         apply_configs
@@ -586,7 +595,7 @@ RSpec.describe Datadog::Profiling::Remote do
       let(:contents) do
         [
           profiling_content("preset-default", profilers: default_preset),
-          profiling_content("depth", settings: {"maxStackDepth" => 100}),
+          profiling_content("depth", profilers: {"lock" => false}, settings: {"maxStackDepth" => 100}),
         ]
       end
 

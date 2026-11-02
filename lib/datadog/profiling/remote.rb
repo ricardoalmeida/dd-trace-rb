@@ -15,8 +15,8 @@ module Datadog
     # @api private
     module Remote
       # The profiling-remote-config service writes to the schemaless DEBUG product until APM_PROFILING
-      # is registered in the RC metadata. Other teams use DEBUG too, so content without a profilers or
-      # settings section is ignored and left unacknowledged.
+      # is registered in the RC metadata. Other teams use DEBUG too, so content without a profilers section,
+      # which the APM_PROFILING schema requires, is ignored and left unacknowledged.
       PRODUCT = "DEBUG"
 
       BOOLEAN = ->(value) { value == true || value == false }
@@ -101,7 +101,7 @@ module Datadog
         def parse_content(content)
           payload = parse_json(content)
           return unless payload.is_a?(Hash)
-          return unless payload.key?("profilers") || payload.key?("settings")
+          return unless payload.key?("profilers")
 
           problems = []
           profilers = parse_fields(payload["profilers"], "profilers", PROFILER_FIELDS, problems)
