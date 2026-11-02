@@ -67,11 +67,20 @@ module Datadog
           configs = Core::Utils::EnumerableCompat.filter_map(parsed) { |_content, _problems, config| config }
 
           profilers, remote_settings = merge(configs, settings)
-          apply_values(settings, to_values(profilers, remote_settings))
+          values = to_values(profilers, remote_settings)
+          apply_values(settings, values)
+
+          unsupported_reason = profiling_unsupported_reason if values[:enabled] == true
 
           # Only once applied: RC does not dispatch unchanged content again, so acknowledging it
           # earlier would hide a failure to apply it.
-          parsed.each { |content, problems, _config| acknowledge(content, problems) }
+          parsed.each do |content, problems, _config|
+            if unsupported_reason
+              content.errored("Profiling is not supported: #{unsupported_reason}")
+            else
+              acknowledge(content, problems)
+            end
+          end
           nil
         rescue => e
           Datadog.logger.debug { "Profiling RC: failed to apply configs: #{e.class}: #{e.message}" }
@@ -102,6 +111,12 @@ module Datadog
           # @type var config: config?
           config = {id: content.path.config_id, targets: targets, profilers: profilers, settings: settings} if targets
           [content, problems, config]
+        end
+
+        def profiling_unsupported_reason
+          # Not required at the top of this file: datadog/profiling requires core, which requires this file.
+          require_relative "../profiling"
+          Datadog::Profiling.unsupported_reason
         end
 
         # Invalid fields are reported as an error without preventing the valid ones from applying.

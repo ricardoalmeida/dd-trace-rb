@@ -1,4 +1,5 @@
 require "spec_helper"
+require "datadog/profiling"
 require "datadog/profiling/remote"
 
 RSpec.describe Datadog::Profiling::Remote do
@@ -46,6 +47,7 @@ RSpec.describe Datadog::Profiling::Remote do
     allow(Datadog).to receive(:configuration).and_return(settings)
     allow(Datadog).to receive(:send).and_call_original
     allow(Datadog).to receive(:send).with(:components, allow_initialization: false).and_return(components)
+    allow(Datadog::Profiling).to receive(:unsupported_reason).and_return(nil)
   end
 
   describe ".products" do
@@ -577,6 +579,36 @@ RSpec.describe Datadog::Profiling::Remote do
 
       it "applies the settings without raising" do
         expect { apply_configs }.to change { settings.profiling.enabled }.from(false).to(true)
+      end
+    end
+
+    context "when profiling is requested but not supported" do
+      let(:contents) do
+        [
+          profiling_content("preset-default", profilers: default_preset),
+          profiling_content("depth", settings: {"maxStackDepth" => 100}),
+        ]
+      end
+
+      before { allow(Datadog::Profiling).to receive(:unsupported_reason).and_return("test reason") }
+
+      it "reports the configs as errored with the reason, instead of applied" do
+        apply_configs
+
+        expect(contents.map(&:apply_state)).to all(eq(apply_state::ERROR))
+        expect(contents.map(&:apply_error)).to all(eq("Profiling is not supported: test reason"))
+      end
+    end
+
+    context "when profiling is disabled remotely and not supported" do
+      let(:contents) { [profiling_content("preset-disabled", profilers: disabled_preset)] }
+
+      before { allow(Datadog::Profiling).to receive(:unsupported_reason).and_return("test reason") }
+
+      it "acknowledges the config, which is honored" do
+        apply_configs
+
+        expect(contents.first.apply_state).to eq(apply_state::ACKNOWLEDGED)
       end
     end
 

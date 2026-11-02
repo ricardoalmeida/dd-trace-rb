@@ -35,6 +35,8 @@ module Datadog
 
       def self.parse_content: (Core::Remote::Configuration::Content content) -> [Core::Remote::Configuration::Content, Array[String], config?]?
 
+      def self.profiling_unsupported_reason: () -> String?
+
       def self.acknowledge: (Core::Remote::Configuration::Content content, Array[String] problems) -> void
 
       def self.parse_json: (Core::Remote::Configuration::Content content) -> untyped
