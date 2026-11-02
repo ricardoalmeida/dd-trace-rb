@@ -57,12 +57,18 @@ module Datadog
         def apply_configs(repository)
           settings = Datadog.configuration
 
-          configs = Core::Utils::EnumerableCompat.filter_map(repository.contents) do |content|
+          # @type var parsed: Array[[Core::Remote::Configuration::Content, Array[String], config?]]
+          parsed = Core::Utils::EnumerableCompat.filter_map(repository.contents) do |content|
             parse_content(content) if content.path.product == PRODUCT
           end
+          configs = Core::Utils::EnumerableCompat.filter_map(parsed) { |_content, _problems, config| config }
 
           profilers, remote_settings = merge(configs, settings)
           apply_values(settings, to_values(profilers, remote_settings))
+
+          # Only once applied: RC does not dispatch unchanged content again, so acknowledging it
+          # earlier would hide a failure to apply it.
+          parsed.each { |content, problems, _config| acknowledge(content, problems) }
           nil
         rescue => e
           Datadog.logger.debug { "Profiling RC: failed to apply configs: #{e.class}: #{e.message}" }
@@ -70,14 +76,16 @@ module Datadog
             e,
             description: "Failed to apply profiling remote configs",
           )
+          parsed&.each do |content, _problems, _config|
+            content.errored("#{e.class}: #{e.message}: #{Array(e.backtrace).join("\n")}")
+          end
           nil
         end
 
         private
 
-        # Returns nil for content that isn't profiling configuration, or whose targets are all
-        # invalid. Invalid fields are reported as an error without preventing the valid ones from
-        # applying.
+        # Returns nil for content that isn't profiling configuration. Otherwise returns the content, the
+        # problems found in it, and its config, which is nil when all of its targets are invalid.
         def parse_content(content)
           payload = parse_json(content)
           return unless payload.is_a?(Hash)
@@ -88,6 +96,13 @@ module Datadog
           settings = parse_fields(payload["settings"], "settings", SETTING_FIELDS, problems)
           targets = parse_targets(payload["targets"], problems)
 
+          # @type var config: config?
+          config = {id: content.path.config_id, targets: targets, profilers: profilers, settings: settings} if targets
+          [content, problems, config]
+        end
+
+        # Invalid fields are reported as an error without preventing the valid ones from applying.
+        def acknowledge(content, problems)
           if problems.empty?
             content.applied
           else
@@ -95,8 +110,6 @@ module Datadog
             Datadog.logger.debug { "Profiling RC: invalid configuration #{content.path.config_id}: #{reason}" }
             content.errored(reason)
           end
-
-          {id: content.path.config_id, targets: targets, profilers: profilers, settings: settings} if targets
         end
 
         # Other DEBUG users' content need not be JSON, so this is not reported as an error.

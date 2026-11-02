@@ -496,6 +496,23 @@ RSpec.describe Datadog::Profiling::Remote do
 
         expect { apply_configs }.to_not raise_error
       end
+
+      it "reports the config as errored instead of applied" do
+        apply_configs
+
+        expect(contents.first.apply_state).to eq(apply_state::ERROR)
+        expect(contents.first.apply_error).to start_with("RuntimeError: test failure")
+      end
+
+      context "with content from other DEBUG users" do
+        let(:contents) { [profiling_content("preset-default", profilers: default_preset), content("other", {"x" => 1})] }
+
+        it "leaves it unacknowledged" do
+          apply_configs
+
+          expect(contents.last.apply_state).to eq(apply_state::UNACKNOWLEDGED)
+        end
+      end
     end
   end
 end

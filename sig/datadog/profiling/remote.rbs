@@ -33,7 +33,9 @@ module Datadog
 
       private
 
-      def self.parse_content: (Core::Remote::Configuration::Content content) -> config?
+      def self.parse_content: (Core::Remote::Configuration::Content content) -> [Core::Remote::Configuration::Content, Array[String], config?]?
+
+      def self.acknowledge: (Core::Remote::Configuration::Content content, Array[String] problems) -> void
 
       def self.parse_json: (Core::Remote::Configuration::Content content) -> untyped
 
